@@ -1,0 +1,115 @@
+﻿<Window x:Class="QuikChart.Views.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm ="clr-namespace:QuikChart.ViewModels"
+        xmlns:oxy="http://oxyplot.org/wpf"
+
+        mc:Ignorable="d"
+        Title="{Binding Title}" Height="500" Width="1500" MinHeight="500" MinWidth="1350">
+    <Window.DataContext>
+        <vm:MainWindowViewModel/>
+    </Window.DataContext>
+    <Window.InputBindings>
+        <KeyBinding Modifiers="Ctrl" Key="Q" Command="{Binding RunCommand}"></KeyBinding>
+        <KeyBinding Modifiers="Ctrl" Key="E" Command="{Binding LoadTextDataCommand}"></KeyBinding>
+    </Window.InputBindings>
+    <Grid Background="White">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="5*"/>
+            <ColumnDefinition Width="21*"/>
+        </Grid.ColumnDefinitions>
+
+        <DockPanel Grid.Row="0" Grid.Column="0" Dock="Top" Margin="0,0,0,0" Height="25" VerticalAlignment="Top">
+            <Menu Height="25">
+                <MenuItem Header="Файл">
+                    <MenuItem Header="Загрузить файл" Command="{Binding LoadTextDataCommand}"/>
+                </MenuItem>
+                <MenuItem Header="Подключиться" Command="{Binding RunCommand}"></MenuItem>
+            </Menu>
+        </DockPanel>
+        <DataGrid AutoGenerateColumns="False" ItemsSource="{Binding OrderDataGrid}" Margin="0 25 5 0">
+            <DataGrid.Columns>
+                <DataGridTextColumn Binding="{Binding Path=Total}" Header="Всего"/>
+                <DataGridTextColumn Binding="{Binding Path=Bid}" Header="Пок."/>
+                <DataGridTextColumn Binding="{Binding Path=Offer}" Header="Прод."/>
+                <DataGridTextColumn Binding="{Binding Path=BidPercentage}" Header="Пок.%"/>
+                <DataGridTextColumn Binding="{Binding Path=OfferPercentage}" Header="Прод%"/>
+                <DataGridTextColumn Binding="{Binding Path=BidEnergy}" Header="Пр. Э"/>
+                <DataGridTextColumn Binding="{Binding Path=OfferEnergy}" Header="Пок. Э"/>
+
+
+            </DataGrid.Columns>
+        </DataGrid>
+        <GridSplitter Grid.Column="0" Width="5" Grid.RowSpan ="3" VerticalAlignment="Stretch"></GridSplitter>
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="2*"/>
+                <RowDefinition Height="1*"/>
+            </Grid.RowDefinitions>
+            <oxy:Plot Grid.Row="0" Margin="0,0,26,0" Title="{Binding PlotTitle}" LegendPosition="TopRight" LegendOrientation="Horizontal" LegendPlacement="Outside">
+                <oxy:Plot.Axes>
+                    <oxy:LinearAxis Position="Left" 
+                                    Key="Main"             
+                                    MajorGridlineStyle="Dot"
+                                    MajorGridlineColor="Gray"></oxy:LinearAxis>
+                    <oxy:LinearAxis Position="Right" 
+                                    Key="Ratio"></oxy:LinearAxis>
+                    <oxy:DateTimeAxis  StringFormat="HH:mm:ss"
+                                       MinorTickSize="0.001"
+                                       MajorGridlineStyle="Dot"
+                                       MajorGridlineColor="Gray"
+                                       Minimum="{Binding Minimum}"
+                                       Maximum="{Binding Maximum}"
+                                       MinorStep="0.001"
+                                       TitleFont="Comic Sans MS"></oxy:DateTimeAxis>
+                </oxy:Plot.Axes>
+
+                <oxy:LineSeries
+                                Name="Price"
+                                Color="Blue"
+                                YAxisKey="Main"
+                                ItemsSource="{Binding TradeDataPoints}"
+                                DataFieldX="Time"
+                                DataFieldY="Price"/>
+
+                <oxy:LineSeries Color="OrangeRed"
+                                Name="Offer"
+                                YAxisKey="Ratio"
+                                ItemsSource="{Binding RatioDataPoints}"
+                                DataFieldX="Time"
+                                DataFieldY="OfferPercentage"/>
+
+                <oxy:LineSeries Color="Green"
+                                Name="Bid"
+                                YAxisKey="Ratio"
+                                ItemsSource="{Binding RatioDataPoints}"
+                                DataFieldX="Time"
+                                DataFieldY="BidPercentage"/>
+
+            </oxy:Plot>
+            <oxy:Plot Grid.Row="1" Margin="6,0,26,0">
+                <oxy:Plot.Axes>
+                    <oxy:LinearAxis Position="Left" Key="Main"  MinorStep="5" MajorStep="5" Maximum="20"                    
+                                    MajorGridlineStyle="Dot"
+                                    MajorGridlineColor="Gray"></oxy:LinearAxis>
+                    <oxy:DateTimeAxis Position="Bottom" StringFormat="HH:mm:ss" IsPanEnabled="True"
+                                      Minimum="{Binding Minimum}"
+                                      Maximum="{Binding Maximum}"></oxy:DateTimeAxis>
+                </oxy:Plot.Axes>
+
+                <oxy:LineSeries Color="Green"
+                            YAxisKey="Main"
+                            ItemsSource="{Binding BidEnergyDataPoints}"
+                            DataFieldX="Time"
+                            DataFieldY="Value"/>
+                <oxy:LineSeries Color="Red"
+                                    YAxisKey="Main"
+                                    ItemsSource="{Binding OfferEnergyDataPoints}"
+                                    DataFieldX="Time"
+                                    DataFieldY="Value"/>
+            </oxy:Plot>
+        </Grid>
+    </Grid>
+</Window>

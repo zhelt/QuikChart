@@ -1,0 +1,25 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="C:\Users\zhelt\.nuget\packages\stocksharp.quiklua32\5.0.77\contentFiles\any\any\StockSharp.Quik.lua" />
+    <None Remove="C:\Users\zhelt\.nuget\packages\stocksharp.quiklua\5.0.77\contentFiles\any\any\StockSharp.Quik.lua" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="morelinq" Version="3.3.2" />
+    <PackageReference Include="OxyPlot.Core" Version="2.0.0" />
+    <PackageReference Include="OxyPlot.Wpf" Version="2.0.0" />
+    <PackageReference Include="QuikSharp" Version="2.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Infrastructure\Commands\Base\" />
+  </ItemGroup>
+
+</Project>
