@@ -18,6 +18,7 @@ using OxyPlot.Axes;
 using OxyPlot.Series;
 using QuikChart.Infrastructure.Commands;
 using QuikChart.StockMath;
+using QuikChart.Views.Windows;
 using QuikSharp;
 using QuikSharp.DataStructures;
 
@@ -127,7 +128,6 @@ namespace QuikChart.ViewModels {
 
         #region LoadTextDataCommand
 
-
         public ICommand LoadTextDataCommand { get; }
 
         private async void OnLoadTextDataCommandExecuted(object p) {
@@ -200,8 +200,11 @@ namespace QuikChart.ViewModels {
 
                             #endregion
 
+                            #region OrderDataGrid
+
                             OrderDataGrid[0] = new OrderData
                             {
+                                TimeRange = "Весь день",
                                 Total = Formulas.CalculateTotal(TradeDataPoints),
                                 Bid = Formulas.CalculateBid(TradeDataPoints),
                                 Offer = Formulas.CalculateOffer(TradeDataPoints),
@@ -213,6 +216,7 @@ namespace QuikChart.ViewModels {
 
                             OrderDataGrid[1] = new OrderData
                             {
+                                TimeRange = "8 часов",
                                 Total = Formulas.CalculateTotal(eightHoursTemp),
                                 Bid = Formulas.CalculateBid(eightHoursTemp),
                                 Offer = Formulas.CalculateOffer(eightHoursTemp),
@@ -224,6 +228,7 @@ namespace QuikChart.ViewModels {
 
                             OrderDataGrid[2] = new OrderData
                             {
+                                TimeRange = "6 часов",
                                 Total = Formulas.CalculateTotal(sixHoursTemp),
                                 Bid = Formulas.CalculateBid(sixHoursTemp),
                                 Offer = Formulas.CalculateOffer(sixHoursTemp),
@@ -235,6 +240,7 @@ namespace QuikChart.ViewModels {
 
                             OrderDataGrid[3] = new OrderData
                             {
+                                TimeRange = "1 час",
                                 Total = Formulas.CalculateTotal(hourTemp),
                                 Bid = Formulas.CalculateBid(hourTemp),
                                 Offer = Formulas.CalculateOffer(hourTemp),
@@ -246,6 +252,7 @@ namespace QuikChart.ViewModels {
 
                             OrderDataGrid[4] = new OrderData
                             {
+                                TimeRange = "10 минут",
                                 Total = Formulas.CalculateTotal(tenMinutesTemp),
                                 Bid = Formulas.CalculateBid(tenMinutesTemp),
                                 Offer = Formulas.CalculateOffer(tenMinutesTemp),
@@ -257,6 +264,7 @@ namespace QuikChart.ViewModels {
 
                             OrderDataGrid[5] = new OrderData
                             {
+                                TimeRange = "5 минут",
                                 Total = Formulas.CalculateTotal(fiveMinutesTemp),
                                 Bid = Formulas.CalculateBid(fiveMinutesTemp),
                                 Offer = Formulas.CalculateOffer(fiveMinutesTemp),
@@ -268,6 +276,7 @@ namespace QuikChart.ViewModels {
 
                             OrderDataGrid[6] = new OrderData
                             {
+                                TimeRange = "1 минута",
                                 Total = Formulas.CalculateTotal(minuteTemp),
                                 Bid = Formulas.CalculateBid(minuteTemp),
                                 Offer = Formulas.CalculateOffer(minuteTemp),
@@ -276,6 +285,8 @@ namespace QuikChart.ViewModels {
                                 BidEnergy = Formulas.CalculateBidEnergy(minuteTemp),
                                 OfferEnergy = Formulas.CalculateOfferEnergy(minuteTemp)
                             };
+
+                            #endregion
 
                             lastFilePrice = double.Parse(data[5].Replace(".", ","));
                         }));
@@ -289,6 +300,18 @@ namespace QuikChart.ViewModels {
 
         #endregion
 
+        #region ShowSettingsWindowCommand
+
+        public ICommand ShowSettingsWindowCommand { get; }
+
+        private void OnShowSettingsWindowCommandExecuted(object p)
+        {
+            SettingsWindow settingsWindow = new SettingsWindow();
+            settingsWindow.Show();
+        }
+        private bool CanShowSettingsWindowCommandExecuted(object p) => true;
+
+        #endregion
 
         public Task DistinctTrades()
         {
@@ -352,9 +375,12 @@ namespace QuikChart.ViewModels {
             {
                 _currentDispatcher.InvokeAsync((Action)(() =>
                 {
+
+                    DateTime currentTradeTime = Formulas.ConvertQuikDateTime(trade.Datetime);
+
                     TradeDataPoints.Add(new QcTrade(
-                        trade.TradeNum, 
-                        Formulas.ConvertQuikDateTime(trade.Datetime), 
+                        trade.TradeNum,
+                        currentTradeTime, 
                         trade.SecCode, trade.Price,
                         trade.Qty, tradeType,
                         trade.Price - lastPrice,
@@ -367,6 +393,23 @@ namespace QuikChart.ViewModels {
                     });
                     BidEnergyDataPoints.Add(new Energy { Time = Formulas.ConvertQuikDateTime(trade.Datetime), Value = Formulas.CalculateBidEnergy(TradeDataPoints) });
                     OfferEnergyDataPoints.Add(new Energy { Time = Formulas.ConvertQuikDateTime(trade.Datetime), Value = Formulas.CalculateOfferEnergy(TradeDataPoints) });
+
+                    Minimum = DateTimeAxis.ToDouble(currentTradeTime.AddMinutes(-5));
+                    Maximum = DateTimeAxis.ToDouble(currentTradeTime.AddMinutes(1));
+
+                    double bidEnergy = Formulas.CalculateBidEnergy(TradeDataPoints);
+                    double offerEnergy = Formulas.CalculateOfferEnergy(TradeDataPoints);
+
+                    PlotTitle = $"{currentTradeTime} {trade.Price} {bidEnergy} {offerEnergy}";
+
+                    RatioDataPoints.Add(new TradeRatio
+                    {
+                        BidPercentage = Formulas.CalculateBidPercentage(TradeDataPoints),
+                        OfferPercentage = Formulas.CalculateOfferPercentage(TradeDataPoints),
+                        Time = currentTradeTime
+                    });
+                    BidEnergyDataPoints.Add(new Energy { Time = currentTradeTime, Value = bidEnergy });
+                    OfferEnergyDataPoints.Add(new Energy { Time = currentTradeTime, Value = offerEnergy });
 
                     DateTime currentTime = DateTime.Now;
 
@@ -387,9 +430,11 @@ namespace QuikChart.ViewModels {
 
                     #endregion
 
+                    #region OrderDataGrid
 
                     OrderDataGrid[0] = new OrderData
                     {
+                        TimeRange = "Весь день",
                         Total = Formulas.CalculateTotal(TradeDataPoints),
                         Bid = Formulas.CalculateBid(TradeDataPoints),
                         Offer = Formulas.CalculateOffer(TradeDataPoints),
@@ -401,6 +446,7 @@ namespace QuikChart.ViewModels {
 
                     OrderDataGrid[1] = new OrderData
                     {
+                        TimeRange = "8 часов",
                         Total = Formulas.CalculateTotal(eightHoursTemp),
                         Bid = Formulas.CalculateBid(eightHoursTemp),
                         Offer = Formulas.CalculateOffer(eightHoursTemp),
@@ -412,6 +458,7 @@ namespace QuikChart.ViewModels {
 
                     OrderDataGrid[2] = new OrderData
                     {
+                        TimeRange = "6 часов",
                         Total = Formulas.CalculateTotal(sixHoursTemp),
                         Bid = Formulas.CalculateBid(sixHoursTemp),
                         Offer = Formulas.CalculateOffer(sixHoursTemp),
@@ -423,6 +470,7 @@ namespace QuikChart.ViewModels {
 
                     OrderDataGrid[3] = new OrderData
                     {
+                        TimeRange = "1 час",
                         Total = Formulas.CalculateTotal(hourTemp),
                         Bid = Formulas.CalculateBid(hourTemp),
                         Offer = Formulas.CalculateOffer(hourTemp),
@@ -434,6 +482,7 @@ namespace QuikChart.ViewModels {
 
                     OrderDataGrid[4] = new OrderData
                     {
+                        TimeRange = "10 минут",
                         Total = Formulas.CalculateTotal(tenMinutesTemp),
                         Bid = Formulas.CalculateBid(tenMinutesTemp),
                         Offer = Formulas.CalculateOffer(tenMinutesTemp),
@@ -445,6 +494,7 @@ namespace QuikChart.ViewModels {
 
                     OrderDataGrid[5] = new OrderData
                     {
+                        TimeRange = "5 минут",
                         Total = Formulas.CalculateTotal(fiveMinutesTemp),
                         Bid = Formulas.CalculateBid(fiveMinutesTemp),
                         Offer = Formulas.CalculateOffer(fiveMinutesTemp),
@@ -456,6 +506,7 @@ namespace QuikChart.ViewModels {
 
                     OrderDataGrid[6] = new OrderData
                     {
+                        TimeRange = "1 минута",
                         Total = Formulas.CalculateTotal(minuteTemp),
                         Bid = Formulas.CalculateBid(minuteTemp),
                         Offer = Formulas.CalculateOffer(minuteTemp),
@@ -465,6 +516,7 @@ namespace QuikChart.ViewModels {
                         OfferEnergy = Formulas.CalculateOfferEnergy(minuteTemp)
                     };
 
+                    #endregion
 
                     lastPrice = trade.Price;
                 }));
@@ -473,6 +525,8 @@ namespace QuikChart.ViewModels {
 
         public MainWindowViewModel()
         {
+            ShowSettingsWindowCommand =
+                new LambdaCommand(OnShowSettingsWindowCommandExecuted, CanShowSettingsWindowCommandExecuted);
             RunCommand = 
                 new LambdaCommand(OnRunCommandExecuted, CanRunCommandExecuted);
             LoadTextDataCommand =

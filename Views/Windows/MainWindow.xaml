@@ -7,7 +7,7 @@
         xmlns:oxy="http://oxyplot.org/wpf"
 
         mc:Ignorable="d"
-        Title="{Binding Title}" Height="500" Width="1500" MinHeight="500" MinWidth="1350">
+        Title="{Binding Title}" Height="700" Width="1500" MinHeight="500" MinWidth="1350" Background="#222226">
     <Window.DataContext>
         <vm:MainWindowViewModel/>
     </Window.DataContext>
@@ -15,40 +15,41 @@
         <KeyBinding Modifiers="Ctrl" Key="Q" Command="{Binding RunCommand}"></KeyBinding>
         <KeyBinding Modifiers="Ctrl" Key="E" Command="{Binding LoadTextDataCommand}"></KeyBinding>
     </Window.InputBindings>
-    <Grid Background="White">
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="5*"/>
-            <ColumnDefinition Width="21*"/>
-        </Grid.ColumnDefinitions>
+    <Window.Resources>
+        <Style x:Key="PlotDarkTheme" TargetType="oxy:Plot">
+            <Setter Property="Background" Value="#222226"></Setter>
+            <Setter Property="TextColor" Value="Teal"></Setter>
+            <Setter Property="BorderThickness" Value="0"></Setter>
+        </Style>
+        <Style x:Key="DarkTheme">
+            <Setter Property="Control.Background" Value="#222226"></Setter>
+            <Setter Property="Control.Foreground" Value="Teal"></Setter>
+        </Style>
+        <Style TargetType="DataGridCell">
+            <Setter Property="Background" Value="#222226"></Setter>
+            <Setter Property="Foreground" Value="Teal"></Setter>
+            <Setter Property="BorderBrush" Value="Black"></Setter>
+        </Style>
+    </Window.Resources>
 
-        <DockPanel Grid.Row="0" Grid.Column="0" Dock="Top" Margin="0,0,0,0" Height="25" VerticalAlignment="Top">
-            <Menu Height="25">
-                <MenuItem Header="Файл">
-                    <MenuItem Header="Загрузить файл" Command="{Binding LoadTextDataCommand}"/>
-                </MenuItem>
+    <Grid Style="{StaticResource DarkTheme}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="2*"/>
+            <RowDefinition Height="1*"/>
+            <RowDefinition Height="1*"/>
+        </Grid.RowDefinitions>
+        <DockPanel Grid.Row="0" Dock="Top" Margin="0,0,0,0" Height="25" VerticalAlignment="Top">
+            <Menu Height="25" Style="{StaticResource DarkTheme}">
+                <MenuItem Style="{StaticResource DarkTheme}" Header="Открыть файл" Command="{Binding LoadTextDataCommand}"/>
                 <MenuItem Header="Подключиться" Command="{Binding RunCommand}"></MenuItem>
+                <MenuItem Header="Настройки" Command="{Binding ShowSettingsWindowCommand}"></MenuItem>
             </Menu>
-        </DockPanel>
-        <DataGrid AutoGenerateColumns="False" ItemsSource="{Binding OrderDataGrid}" Margin="0 25 5 0">
-            <DataGrid.Columns>
-                <DataGridTextColumn Binding="{Binding Path=Total}" Header="Всего"/>
-                <DataGridTextColumn Binding="{Binding Path=Bid}" Header="Пок."/>
-                <DataGridTextColumn Binding="{Binding Path=Offer}" Header="Прод."/>
-                <DataGridTextColumn Binding="{Binding Path=BidPercentage}" Header="Пок.%"/>
-                <DataGridTextColumn Binding="{Binding Path=OfferPercentage}" Header="Прод%"/>
-                <DataGridTextColumn Binding="{Binding Path=BidEnergy}" Header="Пр. Э"/>
-                <DataGridTextColumn Binding="{Binding Path=OfferEnergy}" Header="Пок. Э"/>
-
-
-            </DataGrid.Columns>
-        </DataGrid>
-        <GridSplitter Grid.Column="0" Width="5" Grid.RowSpan ="3" VerticalAlignment="Stretch"></GridSplitter>
-        <Grid Grid.Column="1">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="2*"/>
-                <RowDefinition Height="1*"/>
-            </Grid.RowDefinitions>
-            <oxy:Plot Grid.Row="0" Margin="0,0,26,0" Title="{Binding PlotTitle}" LegendPosition="TopRight" LegendOrientation="Horizontal" LegendPlacement="Outside">
+            </DockPanel>
+        <oxy:Plot Grid.Row="0" Margin="0,25,0,0" 
+                  Title="{Binding PlotTitle}" 
+                  LegendPosition="TopRight" LegendOrientation="Horizontal" 
+                  LegendPlacement="Outside"
+                  Style="{StaticResource PlotDarkTheme}">
                 <oxy:Plot.Axes>
                     <oxy:LinearAxis Position="Left" 
                                     Key="Main"             
@@ -68,20 +69,20 @@
 
                 <oxy:LineSeries
                                 Name="Price"
-                                Color="Blue"
+                                Color="LightBlue"
                                 YAxisKey="Main"
                                 ItemsSource="{Binding TradeDataPoints}"
                                 DataFieldX="Time"
                                 DataFieldY="Price"/>
 
-                <oxy:LineSeries Color="OrangeRed"
+                <oxy:LineSeries Color="LightCoral"
                                 Name="Offer"
                                 YAxisKey="Ratio"
                                 ItemsSource="{Binding RatioDataPoints}"
                                 DataFieldX="Time"
                                 DataFieldY="OfferPercentage"/>
 
-                <oxy:LineSeries Color="Green"
+                <oxy:LineSeries Color="LightGreen"
                                 Name="Bid"
                                 YAxisKey="Ratio"
                                 ItemsSource="{Binding RatioDataPoints}"
@@ -89,27 +90,47 @@
                                 DataFieldY="BidPercentage"/>
 
             </oxy:Plot>
-            <oxy:Plot Grid.Row="1" Margin="6,0,26,0">
+        <oxy:Plot Grid.Row="1" Margin="6,0,26,0" Style="{StaticResource PlotDarkTheme}">
                 <oxy:Plot.Axes>
                     <oxy:LinearAxis Position="Left" Key="Main"  MinorStep="5" MajorStep="5" Maximum="20"                    
                                     MajorGridlineStyle="Dot"
                                     MajorGridlineColor="Gray"></oxy:LinearAxis>
                     <oxy:DateTimeAxis Position="Bottom" StringFormat="HH:mm:ss" IsPanEnabled="True"
                                       Minimum="{Binding Minimum}"
-                                      Maximum="{Binding Maximum}"></oxy:DateTimeAxis>
+                                      Maximum="{Binding Maximum}"
+                                      MajorGridlineStyle="Dot"
+                                      MajorGridlineColor="Gray"></oxy:DateTimeAxis>
                 </oxy:Plot.Axes>
 
-                <oxy:LineSeries Color="Green"
+            <oxy:LineSeries Color="LightGreen"
                             YAxisKey="Main"
                             ItemsSource="{Binding BidEnergyDataPoints}"
                             DataFieldX="Time"
                             DataFieldY="Value"/>
-                <oxy:LineSeries Color="Red"
+            <oxy:LineSeries Color="LightCoral"
                                     YAxisKey="Main"
                                     ItemsSource="{Binding OfferEnergyDataPoints}"
                                     DataFieldX="Time"
                                     DataFieldY="Value"/>
             </oxy:Plot>
-        </Grid>
+        <DataGrid AutoGenerateColumns="False" 
+                  CanUserSortColumns="False" 
+                  Grid.Row="2" 
+                  ItemsSource="{Binding OrderDataGrid}" 
+                  Margin="0 0 5 0"
+                  ColumnHeaderStyle="{StaticResource DarkTheme}"
+                  RowHeaderStyle="{StaticResource DarkTheme}"
+                  Style="{StaticResource DarkTheme}">
+            <DataGrid.Columns>
+                    <DataGridTextColumn Binding="{Binding Path=TimeRange}" Width="*" Header="Время"/>
+                    <DataGridTextColumn Binding="{Binding Path=Total}" Width="*" Header="Всего"/>
+                    <DataGridTextColumn Binding="{Binding Path=Bid}" Width="*" Header="Пок."/>
+                    <DataGridTextColumn Binding="{Binding Path=Offer}" Width="*" Header="Прод."/>
+                    <DataGridTextColumn Binding="{Binding Path=BidPercentage}" Width="*" Header="Пок.%"/>
+                    <DataGridTextColumn Binding="{Binding Path=OfferPercentage}" Width="*" Header="Прод%"/>
+                    <DataGridTextColumn Binding="{Binding Path=BidEnergy}" Width="*" Header="Пр. Э"/>
+                    <DataGridTextColumn Binding="{Binding Path=OfferEnergy}"  Width="*" Header="Пок. Э"/>
+            </DataGrid.Columns>
+        </DataGrid>
     </Grid>
 </Window>
