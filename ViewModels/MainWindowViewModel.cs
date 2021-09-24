@@ -1,21 +1,16 @@
 ﻿using System;
+using System.Collections.Generic;
 using QuikChart.Models;
 using QuikChart.ViewModels.Base;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using Microsoft.Win32;
-using MoreLinq;
-using OxyPlot;
 using OxyPlot.Axes;
-using OxyPlot.Series;
 using QuikChart.Infrastructure.Commands;
 using QuikChart.StockMath;
 using QuikChart.Views.Windows;
@@ -27,11 +22,33 @@ namespace QuikChart.ViewModels {
     {
         private readonly Dispatcher _currentDispatcher = Dispatcher.CurrentDispatcher;
 
-        const int DataLimit = 10;
-
         private double lastPrice = 0;
 
         private static Quik _quik;
+
+        public ObservableCollection<OrderData> OrderDatas { get; set; } = new ObservableCollection<OrderData>()
+        {
+            new OrderData { TimeRange = "День", Total = 1000000, Bid = 500000, Offer = 500000, BidEnergy = 0.0001, OfferEnergy = 0.0001, BidPercentage = 50.5, OfferPercentage = 49.5 }, new OrderData { TimeRange = "12ч" }, new OrderData { TimeRange = "8ч" },
+            new OrderData { TimeRange = "6ч" }, new OrderData { TimeRange = "3ч" }, new OrderData { TimeRange = "1ч" },
+            new OrderData { TimeRange = "30мин" }, new OrderData { TimeRange = "15мин" }, new OrderData { TimeRange = "10мин" },
+            new OrderData { TimeRange = "5мин" }, new OrderData { TimeRange = "1 мин" },
+        };
+
+        #region Trades Count
+
+        public int BidCount = 0;
+        public int OfferCount = 0;
+
+        #endregion
+
+        #region Trades
+
+        public static int EnergyRange { get; set; } = 30;
+
+        public double[,] BidEnergyComponents = new double[2, EnergyRange];
+        public double[,] OfferEnergyComponents = new double[2, EnergyRange];
+
+        #endregion
 
         #region Plot Title
 
@@ -75,40 +92,12 @@ namespace QuikChart.ViewModels {
 
         #endregion
 
-        #region TradeDataPoints
+        #region ChartPoints
 
-        public ObservableCollection<QcTrade> TradeDataPoints { get; set; } = new ObservableCollection<QcTrade>();
-
-        #endregion
-
-        #region BidEnergyDataPoints
-
-        public ObservableCollection<Energy> BidEnergyDataPoints { get; } = new ObservableCollection<Energy>();
+        private ObservableCollection<QcTrade> _chartPoints = new ObservableCollection<QcTrade>();
+        public ObservableCollection<QcTrade> ChartPoints { get => _chartPoints; set => Set(ref _chartPoints, value); }
 
         #endregion
-
-        #region OfferEnergyDataPoints
-
-
-        public ObservableCollection<Energy> OfferEnergyDataPoints { get; } = new ObservableCollection<Energy>();
-
-        #endregion
-
-        #region RatioDataPoints
-
-        public ObservableCollection<TradeRatio> RatioDataPoints { get; } = new ObservableCollection<TradeRatio>();
-
-        #endregion
-
-        #region OrderDataGrid
-
-        public ObservableCollection<OrderData> OrderDataGrid { get; set; } = new ObservableCollection<OrderData>
-        (
-            Enumerable.Repeat(new OrderData(), 7)
-        );
-
-        #endregion
-
 
         #region RunCommand
 
@@ -119,7 +108,7 @@ namespace QuikChart.ViewModels {
             Init();
             new Thread(() =>
             {
-                    Run();
+                Run();
             }).Start();
         }
         private bool CanRunCommandExecuted(object p) => true;
@@ -130,15 +119,14 @@ namespace QuikChart.ViewModels {
 
         public ICommand LoadTextDataCommand { get; }
 
-        private async void OnLoadTextDataCommandExecuted(object p) {
+        private async void OnLoadTextDataCommandExecuted(object p)
+        {
             OpenFileDialog openFileDialog = new OpenFileDialog
             {
-                Filter = ".txt | *.txt"
+                    Filter = ".txt | *.txt"
             };
             if (openFileDialog.ShowDialog() == true)
             {
-                DateTime start = DateTime.Now;
-
                 double lastFilePrice = 0;
                 string[] lines = await File.ReadAllLinesAsync(openFileDialog.FileName);
 
@@ -149,154 +137,34 @@ namespace QuikChart.ViewModels {
                     {
                         await _currentDispatcher.InvokeAsync((Action) (() =>
                         {
-                            double currentPrice = double.Parse(data[5].Replace(".", ","));
-                            DateTime currentFileTime = DateTime.Parse(data[1]);
-                            TradeDataPoints.Add(
-                                new QcTrade(
-                                    long.Parse(data.First()),
-                                    currentFileTime, 
-                                    data[4],
-                                    currentPrice,
-                                    long.Parse(data[7]),
-                                    data.Last(),
-                                    currentPrice - lastFilePrice,
-                                    Formulas.CalculatePercentageDelta(currentPrice, lastFilePrice))
-                            );
-
-
-                            Minimum = DateTimeAxis.ToDouble(currentFileTime.AddMinutes(-5));
-                            Maximum = DateTimeAxis.ToDouble(currentFileTime.AddMinutes(1));
-
-                            double bidEnergy = Formulas.CalculateBidEnergy(TradeDataPoints);
-                            double offerEnergy = Formulas.CalculateOfferEnergy(TradeDataPoints);
-
-                            PlotTitle = $"{currentFileTime} {currentPrice} {bidEnergy} {offerEnergy}";
-
-                            RatioDataPoints.Add(new TradeRatio
+                            if (data[^1] == "B")
                             {
-                                BidPercentage = Formulas.CalculateBidPercentage(TradeDataPoints),
-                                OfferPercentage = Formulas.CalculateOfferPercentage(TradeDataPoints),
-                                Time = currentFileTime
-                            });
-                            BidEnergyDataPoints.Add(new Energy { Time = currentFileTime, Value = bidEnergy}); 
-                            OfferEnergyDataPoints.Add(new Energy { Time = currentFileTime, Value = offerEnergy});
 
-                            DateTime currentTime = DateTime.Now;
-
-                            #region Temporal Lists
-
-                            List<QcTrade> eightHoursTemp =
-                                TradeDataPoints.Where(x => (currentTime - x.Time).Hours <= 8).ToList();
-                            List<QcTrade> sixHoursTemp =
-                                TradeDataPoints.Where(x => (currentTime - x.Time).Hours <= 6).ToList();
-                            List<QcTrade> hourTemp =
-                                TradeDataPoints.Where(x => (currentTime - x.Time).Hours <= 1).ToList();
-                            List<QcTrade> tenMinutesTemp =
-                                TradeDataPoints.Where(x => (currentTime - x.Time).Minutes <= 10 && x.Time.Hour == currentTime.Hour).ToList();
-                            List<QcTrade> fiveMinutesTemp =
-                                TradeDataPoints.Where(x => (currentTime - x.Time).Minutes <= 5 && x.Time.Hour == currentTime.Hour).ToList();
-                            List<QcTrade> minuteTemp =
-                                TradeDataPoints.Where(x => (currentTime - x.Time).Minutes <= 1 && x.Time.Hour == currentTime.Hour).ToList();
-
-                            #endregion
-
-                            #region OrderDataGrid
-
-                            OrderDataGrid[0] = new OrderData
+                            }
+                            else
                             {
-                                TimeRange = "Весь день",
-                                Total = Formulas.CalculateTotal(TradeDataPoints),
-                                Bid = Formulas.CalculateBid(TradeDataPoints),
-                                Offer = Formulas.CalculateOffer(TradeDataPoints),
-                                BidPercentage = Formulas.CalculateBidPercentage(TradeDataPoints),
-                                OfferPercentage = Formulas.CalculateOfferPercentage(TradeDataPoints),
-                                BidEnergy = Formulas.CalculateBidEnergy(TradeDataPoints),
-                                OfferEnergy = Formulas.CalculateOfferEnergy(TradeDataPoints)
-                            };
 
-                            OrderDataGrid[1] = new OrderData
-                            {
-                                TimeRange = "8 часов",
-                                Total = Formulas.CalculateTotal(eightHoursTemp),
-                                Bid = Formulas.CalculateBid(eightHoursTemp),
-                                Offer = Formulas.CalculateOffer(eightHoursTemp),
-                                BidPercentage = Formulas.CalculateBidPercentage(eightHoursTemp),
-                                OfferPercentage = Formulas.CalculateOfferPercentage(eightHoursTemp),
-                                BidEnergy = Formulas.CalculateBidEnergy(eightHoursTemp),
-                                OfferEnergy = Formulas.CalculateOfferEnergy(eightHoursTemp)
-                            };
-
-                            OrderDataGrid[2] = new OrderData
-                            {
-                                TimeRange = "6 часов",
-                                Total = Formulas.CalculateTotal(sixHoursTemp),
-                                Bid = Formulas.CalculateBid(sixHoursTemp),
-                                Offer = Formulas.CalculateOffer(sixHoursTemp),
-                                BidPercentage = Formulas.CalculateBidPercentage(sixHoursTemp),
-                                OfferPercentage = Formulas.CalculateOfferPercentage(sixHoursTemp),
-                                BidEnergy = Formulas.CalculateBidEnergy(sixHoursTemp),
-                                OfferEnergy = Formulas.CalculateOfferEnergy(sixHoursTemp)
-                            };
-
-                            OrderDataGrid[3] = new OrderData
-                            {
-                                TimeRange = "1 час",
-                                Total = Formulas.CalculateTotal(hourTemp),
-                                Bid = Formulas.CalculateBid(hourTemp),
-                                Offer = Formulas.CalculateOffer(hourTemp),
-                                BidPercentage = Formulas.CalculateBidPercentage(hourTemp),
-                                OfferPercentage = Formulas.CalculateOfferPercentage(hourTemp),
-                                BidEnergy = Formulas.CalculateBidEnergy(hourTemp),
-                                OfferEnergy = Formulas.CalculateOfferEnergy(hourTemp)
-                            };
-
-                            OrderDataGrid[4] = new OrderData
-                            {
-                                TimeRange = "10 минут",
-                                Total = Formulas.CalculateTotal(tenMinutesTemp),
-                                Bid = Formulas.CalculateBid(tenMinutesTemp),
-                                Offer = Formulas.CalculateOffer(tenMinutesTemp),
-                                BidPercentage = Formulas.CalculateBidPercentage(tenMinutesTemp),
-                                OfferPercentage = Formulas.CalculateOfferPercentage(tenMinutesTemp),
-                                BidEnergy = Formulas.CalculateBidEnergy(tenMinutesTemp),
-                                OfferEnergy = Formulas.CalculateOfferEnergy(tenMinutesTemp)
-                            };
-
-                            OrderDataGrid[5] = new OrderData
-                            {
-                                TimeRange = "5 минут",
-                                Total = Formulas.CalculateTotal(fiveMinutesTemp),
-                                Bid = Formulas.CalculateBid(fiveMinutesTemp),
-                                Offer = Formulas.CalculateOffer(fiveMinutesTemp),
-                                BidPercentage = Formulas.CalculateBidPercentage(fiveMinutesTemp),
-                                OfferPercentage = Formulas.CalculateOfferPercentage(fiveMinutesTemp),
-                                BidEnergy = Formulas.CalculateBidEnergy(fiveMinutesTemp),
-                                OfferEnergy = Formulas.CalculateOfferEnergy(fiveMinutesTemp)
-                            };
-
-                            OrderDataGrid[6] = new OrderData
-                            {
-                                TimeRange = "1 минута",
-                                Total = Formulas.CalculateTotal(minuteTemp),
-                                Bid = Formulas.CalculateBid(minuteTemp),
-                                Offer = Formulas.CalculateOffer(minuteTemp),
-                                BidPercentage = Formulas.CalculateBidPercentage(minuteTemp),
-                                OfferPercentage = Formulas.CalculateOfferPercentage(minuteTemp),
-                                BidEnergy = Formulas.CalculateBidEnergy(minuteTemp),
-                                OfferEnergy = Formulas.CalculateOfferEnergy(minuteTemp)
-                            };
-
-                            #endregion
-
-                            lastFilePrice = double.Parse(data[5].Replace(".", ","));
+                            }
                         }));
                     });
                 }
-
-                await DistinctTrades();
             }
         }
+        
         private bool CanLoadTextDataCommandExecuted(object p) => true;
+
+        #endregion
+
+        #region DistinctTradesCommand
+
+        public ICommand DistinctTradesCommand { get; }
+
+        private async void OnDistinctTradesCommandExecuted(object p)
+        {
+            await DistinctTrades();
+        }
+
+        private bool CanDistinctTradesCommandExecuted(object p) => true;
 
         #endregion
 
@@ -315,7 +183,6 @@ namespace QuikChart.ViewModels {
 
         public Task DistinctTrades()
         {
-            TradeDataPoints = new ObservableCollection<QcTrade>(TradeDataPoints.DistinctBy(trade => trade.TradeId));
             return Task.CompletedTask;
         }
 
@@ -354,177 +221,60 @@ namespace QuikChart.ViewModels {
             }
         }
 
-        private async void Event_OnAllTrade(AllTrade trade)
-        {
+        private async void Event_OnAllTrade(AllTrade trade) {
 
             Title = trade.TradeNum.ToString();
-            
+
 
             string tradeType = "None";
 
             if ((trade.Flags & AllTradeFlags.Sell) != 0)
             {
                 tradeType = "S";
+                OfferCount += (int)trade.Qty;
             }
             else if ((trade.Flags & AllTradeFlags.Buy) != 0)
             {
                 tradeType = "B";
+                BidCount += (int)trade.Qty;
             }
 
-            await Task.Run((Action) (() =>
+            double bidPercentage = Formulas.CalculateRatio(BidCount, OfferCount);
+            double offerPercentage = Formulas.CalculateRatio(BidCount, OfferCount);
+
+
+            await Task.Run((Action)(() =>
             {
                 _currentDispatcher.InvokeAsync((Action)(() =>
                 {
-
                     DateTime currentTradeTime = Formulas.ConvertQuikDateTime(trade.Datetime);
 
-                    TradeDataPoints.Add(new QcTrade(
-                        trade.TradeNum,
-                        currentTradeTime, 
-                        trade.SecCode, trade.Price,
-                        trade.Qty, tradeType,
-                        trade.Price - lastPrice,
-                        Formulas.CalculatePercentageDelta(trade.Price, lastPrice)));
-                    RatioDataPoints.Add(new TradeRatio
-                    {
-                        BidPercentage = Formulas.CalculateBidPercentage(TradeDataPoints),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(TradeDataPoints),
-                        Time = Formulas.ConvertQuikDateTime(trade.Datetime)
-                    });
-                    BidEnergyDataPoints.Add(new Energy { Time = Formulas.ConvertQuikDateTime(trade.Datetime), Value = Formulas.CalculateBidEnergy(TradeDataPoints) });
-                    OfferEnergyDataPoints.Add(new Energy { Time = Formulas.ConvertQuikDateTime(trade.Datetime), Value = Formulas.CalculateOfferEnergy(TradeDataPoints) });
+                    ChartPoints.Add(new QcTrade
+                        {
+                            TradeId = trade.TradeNum,
+                            Time = currentTradeTime,
+                            Ticker = trade.SecCode,
+                            Price = trade.Price,
+                            Quantity = trade.Qty, 
+                            Type = tradeType,
+                            BidPercentage = bidPercentage,
+                            OfferPercentage = offerPercentage
+                        }
+                    );
 
                     Minimum = DateTimeAxis.ToDouble(currentTradeTime.AddMinutes(-5));
                     Maximum = DateTimeAxis.ToDouble(currentTradeTime.AddMinutes(1));
 
-                    double bidEnergy = Formulas.CalculateBidEnergy(TradeDataPoints);
-                    double offerEnergy = Formulas.CalculateOfferEnergy(TradeDataPoints);
 
-                    PlotTitle = $"{currentTradeTime} {trade.Price} {bidEnergy} {offerEnergy}";
-
-                    RatioDataPoints.Add(new TradeRatio
-                    {
-                        BidPercentage = Formulas.CalculateBidPercentage(TradeDataPoints),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(TradeDataPoints),
-                        Time = currentTradeTime
-                    });
-                    BidEnergyDataPoints.Add(new Energy { Time = currentTradeTime, Value = bidEnergy });
-                    OfferEnergyDataPoints.Add(new Energy { Time = currentTradeTime, Value = offerEnergy });
-
-                    DateTime currentTime = DateTime.Now;
-
-                    #region Temporal Lists
-
-                    List<QcTrade> eightHoursTemp =
-                        TradeDataPoints.Where(x => (currentTime - x.Time).Hours <= 8).ToList();
-                    List<QcTrade> sixHoursTemp =
-                        TradeDataPoints.Where(x => (currentTime - x.Time).Hours <= 6).ToList();
-                    List<QcTrade> hourTemp =
-                        TradeDataPoints.Where(x => (currentTime - x.Time).Hours <= 1).ToList();
-                    List<QcTrade> tenMinutesTemp =
-                        TradeDataPoints.Where(x => (currentTime - x.Time).Minutes <= 10 && x.Time.Hour == currentTime.Hour).ToList();
-                    List<QcTrade> fiveMinutesTemp =
-                        TradeDataPoints.Where(x => (currentTime - x.Time).Minutes <= 5 && x.Time.Hour == currentTime.Hour).ToList();
-                    List<QcTrade> minuteTemp =
-                        TradeDataPoints.Where(x => (currentTime - x.Time).Minutes <= 1 && x.Time.Hour == currentTime.Hour).ToList();
-
-                    #endregion
-
-                    #region OrderDataGrid
-
-                    OrderDataGrid[0] = new OrderData
-                    {
-                        TimeRange = "Весь день",
-                        Total = Formulas.CalculateTotal(TradeDataPoints),
-                        Bid = Formulas.CalculateBid(TradeDataPoints),
-                        Offer = Formulas.CalculateOffer(TradeDataPoints),
-                        BidPercentage = Formulas.CalculateBidPercentage(TradeDataPoints),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(TradeDataPoints),
-                        BidEnergy = Formulas.CalculateBidEnergy(TradeDataPoints),
-                        OfferEnergy = Formulas.CalculateOfferEnergy(TradeDataPoints)
-                    };
-
-                    OrderDataGrid[1] = new OrderData
-                    {
-                        TimeRange = "8 часов",
-                        Total = Formulas.CalculateTotal(eightHoursTemp),
-                        Bid = Formulas.CalculateBid(eightHoursTemp),
-                        Offer = Formulas.CalculateOffer(eightHoursTemp),
-                        BidPercentage = Formulas.CalculateBidPercentage(eightHoursTemp),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(eightHoursTemp),
-                        BidEnergy = Formulas.CalculateBidEnergy(eightHoursTemp),
-                        OfferEnergy = Formulas.CalculateOfferEnergy(eightHoursTemp)
-                    };
-
-                    OrderDataGrid[2] = new OrderData
-                    {
-                        TimeRange = "6 часов",
-                        Total = Formulas.CalculateTotal(sixHoursTemp),
-                        Bid = Formulas.CalculateBid(sixHoursTemp),
-                        Offer = Formulas.CalculateOffer(sixHoursTemp),
-                        BidPercentage = Formulas.CalculateBidPercentage(sixHoursTemp),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(sixHoursTemp),
-                        BidEnergy = Formulas.CalculateBidEnergy(sixHoursTemp),
-                        OfferEnergy = Formulas.CalculateOfferEnergy(sixHoursTemp)
-                    };
-
-                    OrderDataGrid[3] = new OrderData
-                    {
-                        TimeRange = "1 час",
-                        Total = Formulas.CalculateTotal(hourTemp),
-                        Bid = Formulas.CalculateBid(hourTemp),
-                        Offer = Formulas.CalculateOffer(hourTemp),
-                        BidPercentage = Formulas.CalculateBidPercentage(hourTemp),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(hourTemp),
-                        BidEnergy = Formulas.CalculateBidEnergy(hourTemp),
-                        OfferEnergy = Formulas.CalculateOfferEnergy(hourTemp)
-                    };
-
-                    OrderDataGrid[4] = new OrderData
-                    {
-                        TimeRange = "10 минут",
-                        Total = Formulas.CalculateTotal(tenMinutesTemp),
-                        Bid = Formulas.CalculateBid(tenMinutesTemp),
-                        Offer = Formulas.CalculateOffer(tenMinutesTemp),
-                        BidPercentage = Formulas.CalculateBidPercentage(tenMinutesTemp),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(tenMinutesTemp),
-                        BidEnergy = Formulas.CalculateBidEnergy(tenMinutesTemp),
-                        OfferEnergy = Formulas.CalculateOfferEnergy(tenMinutesTemp)
-                    };
-
-                    OrderDataGrid[5] = new OrderData
-                    {
-                        TimeRange = "5 минут",
-                        Total = Formulas.CalculateTotal(fiveMinutesTemp),
-                        Bid = Formulas.CalculateBid(fiveMinutesTemp),
-                        Offer = Formulas.CalculateOffer(fiveMinutesTemp),
-                        BidPercentage = Formulas.CalculateBidPercentage(fiveMinutesTemp),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(fiveMinutesTemp),
-                        BidEnergy = Formulas.CalculateBidEnergy(fiveMinutesTemp),
-                        OfferEnergy = Formulas.CalculateOfferEnergy(fiveMinutesTemp)
-                    };
-
-                    OrderDataGrid[6] = new OrderData
-                    {
-                        TimeRange = "1 минута",
-                        Total = Formulas.CalculateTotal(minuteTemp),
-                        Bid = Formulas.CalculateBid(minuteTemp),
-                        Offer = Formulas.CalculateOffer(minuteTemp),
-                        BidPercentage = Formulas.CalculateBidPercentage(minuteTemp),
-                        OfferPercentage = Formulas.CalculateOfferPercentage(minuteTemp),
-                        BidEnergy = Formulas.CalculateBidEnergy(minuteTemp),
-                        OfferEnergy = Formulas.CalculateOfferEnergy(minuteTemp)
-                    };
-
-                    #endregion
-
-                    lastPrice = trade.Price;
+                    PlotTitle = $"{currentTradeTime} {trade.Price} {bidPercentage} {offerPercentage}";
                 }));
             }));
         }
 
         public MainWindowViewModel()
         {
+            DistinctTradesCommand =
+                new LambdaCommand(OnDistinctTradesCommandExecuted, CanDistinctTradesCommandExecuted);
             ShowSettingsWindowCommand =
                 new LambdaCommand(OnShowSettingsWindowCommandExecuted, CanShowSettingsWindowCommandExecuted);
             RunCommand = 

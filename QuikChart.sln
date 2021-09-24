@@ -7,6 +7,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "QuikChart", "QuikChart.cspr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "QuikChartTest", "..\QuikChartTest\QuikChartTest.csproj", "{66F71D0A-B690-4BAE-9CDE-A27FACBBDCDE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test", "..\Users\zhelt\source\repos\Test\Test.csproj", "{EA4B09DB-E740-463B-8567-431AB0FDCE42}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -21,6 +23,10 @@ Global
 		{66F71D0A-B690-4BAE-9CDE-A27FACBBDCDE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{66F71D0A-B690-4BAE-9CDE-A27FACBBDCDE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{66F71D0A-B690-4BAE-9CDE-A27FACBBDCDE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EA4B09DB-E740-463B-8567-431AB0FDCE42}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EA4B09DB-E740-463B-8567-431AB0FDCE42}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EA4B09DB-E740-463B-8567-431AB0FDCE42}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EA4B09DB-E740-463B-8567-431AB0FDCE42}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
